@@ -1,0 +1,18 @@
+version: '3.8'
+services:
+  voicevox:
+    image: voicevox/voicevox_engine:latest
+    ports:
+      - "50021:50021"
+    restart: unless-stopped
+
+  web:
+    build: .
+    volumes:
+      - ./app:/app/app
+    ports:
+      - "3000:3000"
+    environment:
+      - VOICEVOX_API_URL=http://voicevox:50021
+    depends_on:
+      - voicevox
