@@ -14,7 +14,7 @@ def fetch_speakers():
 
 # 起動時に話者情報を読み込み
 speakers_data = fetch_speakers()
-# "name" はユニーク前提（被りがある場合は uuid などに変更）
+# "name" はユニーク前提
 speaker_map = {s["name"]: s["styles"] for s in speakers_data}
 
 
@@ -27,17 +27,18 @@ def synthesize(text: str, speaker_name: str, style_label: str) -> str:
     """VOICEVOX で音声合成し、一時 WAV ファイルのパスを返却"""
     # style_label -> ID 抽出
     style_id = int(style_label.split("(")[-1].rstrip(")"))
+    print(f"style_id={style_id}, speaker_name={speaker_name}")
 
-    # 1) audio_query
+    # audio_query (v0.14+ は POST /audio_query?text=...&speaker=... で空 JSON)
     aq_res = requests.post(
         f"{VOICEVOX_API_URL}/audio_query",
         params={"text": text, "speaker": style_id},
-        json={}  # VOICEVOX v0.14+ は空 JSON が必要
+        json={}
     )
     aq_res.raise_for_status()
     query = aq_res.json()
 
-    # 2) synthesis
+    # synthesis
     synth_res = requests.post(
         f"{VOICEVOX_API_URL}/synthesis",
         params={"speaker": style_id},
@@ -45,11 +46,11 @@ def synthesize(text: str, speaker_name: str, style_label: str) -> str:
     )
     synth_res.raise_for_status()
 
-    # 3) 一時ファイル出力
-    tmp_file = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
-    tmp_file.write(synth_res.content)
-    tmp_file.close()
-    return tmp_file.name
+    # temp wav
+    tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+    tmp.write(synth_res.content)
+    tmp.close()
+    return tmp.name
 
 # === Gradio UI ===
 with gr.Blocks() as iface:
@@ -73,7 +74,7 @@ with gr.Blocks() as iface:
     # 話者変更でスタイル更新
     def update_styles(speaker):
         labels = get_style_labels(speaker)
-        return gr.Dropdown.update(choices=labels, value=labels[0])
+        return gr.update(choices=labels, value=labels[0])
 
     speaker_dropdown.change(update_styles, inputs=speaker_dropdown, outputs=style_dropdown)
 
